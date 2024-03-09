@@ -216,6 +216,7 @@ int handle_read_exit(struct trace_event_raw_sys_exit *ctx)
     struct custom_payload *payload;
     __u8 key = 0;
     payload = bpf_map_lookup_elem(&map_payload_buffer, &key);
+    // bpf_printk(payload->raw_buf, payload->payload_len);
     if (payload == 0)
     {
         return 0;
@@ -262,3 +263,5 @@ int handle_close_exit(struct trace_event_raw_sys_exit *ctx)
 
     return 0;
 }
+
+char LICENSE[] SEC("license") = "Dual BSD/GPL";

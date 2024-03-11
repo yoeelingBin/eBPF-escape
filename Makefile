@@ -8,13 +8,14 @@ build: mod_tidy generate
 help:
 	$(info |=======================================================================================================)
 	$(info |usage:)
-	$(info |	build:  build full sshd_backdoor cli tool. But full sshd_backdoor is just supoorted the demo only)
-	$(info |	generate: Generate the ebpf prog in kernel with clang.)
-	$(info |			  if you need you can set the CFLAGS to append)
-	$(info |	test_ebpf: if you editing the ebpf-c c files and header files)
-	$(info |			   to test the ebpf can be compiled and pass ebpf verifier when load)
-	$(info |	tool_unload: bpftool unload progs.)
-	$(info |	tool_load: bpftool load  progs.)
+	$(info |	build:                  build full sshd_backdoor cli tool. But full sshd_backdoor is just supoorted the demo only)
+	$(info |	generate:               Generate the ebpf prog in kernel with clang.)
+	$(info |			                if you need you can set the CFLAGS to append)
+	$(info |	test_ebpf:              if you editing the ebpf-c c files and header files)
+	$(info |			                to test the ebpf can be compiled and pass ebpf verifier when load)
+	$(info |	tool_unload:            bpftool unload progs.)
+	$(info |	tool_load:              bpftool load  progs.)
+	$(info |	tool_trace_printk: 	    read tracing pipe debug bpf_printk)
 	$(info |)
 
 # Generate the ebpf prog in kernel with clang

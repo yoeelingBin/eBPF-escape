@@ -41,8 +41,3 @@ tool_load:
 # bpftool unload progs.
 tool_unload:
 	rm /sys/fs/bpf/*
-
-# test ebpf prog in passing verifier.
-test_ebpf: generate
-test_ebpf: tool_load
-test_ebpf: tool_unload

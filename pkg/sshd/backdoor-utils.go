@@ -1,8 +1,6 @@
 package sshd
 
 import (
-	"fmt"
-
 	"golang.org/x/sys/unix"
 )
 
@@ -24,9 +22,6 @@ func SendKey(objs bpfObjects, key string) error {
 		return err
 	}
 	keyLen := len(keyBytes)
-	if keyLen > 440 {
-		return fmt.Errorf("key too long")
-	}
 
 	return objs.MapPayloadBuffer.Put(uint8(0), bpfCustomPayload{
 		RawBuf:     formatUint8SliceToUint8Array(keyBytes),

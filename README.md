@@ -35,3 +35,5 @@ sudo ./sshd_backdoor
 使用启动脚本`./test/run_container.sh`，随后在容器内/tmp目录下执行`./sshd_backdoor`。
 
 ![alt text](image.png)
+
+然后在另外一台主机上运行`ssh -i .\test25519 user@hostip`直接登录

@@ -37,3 +37,6 @@ sudo ./sshd_backdoor
 ![alt text](image.png)
 
 然后在另外一台主机上运行`ssh -i .\test25519 user@hostip`直接登录
+
+![Pasted image 20240311123038](https://github.com/user-attachments/assets/5c223c47-cf9f-4e59-b556-0e16324ec05b)
+
